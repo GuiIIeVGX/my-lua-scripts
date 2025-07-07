@@ -1,0 +1,638 @@
+-- Brainrot Universal Script with Advanced Features
+-- Multiple Rayfield loading methods
+local Rayfield
+pcall(function()
+    Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+if not Rayfield then
+    pcall(function()
+        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+    end)
+end
+
+if not Rayfield then return end
+
+-- Wait for game
+repeat wait(0.1) until game:IsLoaded()
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Variables
+local basePosition = Vector3.new(0, 10, 0)
+local originalSpeed = 16
+local godMode = false
+local antiRagdoll = false
+local autoWalk = false
+local skyWidget = nil
+local skyWidgetVisible = false
+local skyWidgetMinimized = false
+
+-- Anti-kick system
+local function antiKick()
+    local mt = getrawmetatable(game)
+    local old = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "Kick" then
+            return
+        end
+        return old(self, ...)
+    end)
+    setreadonly(mt, true)
+end
+
+-- Natural walk teleport (115% speed for bypass)
+local function naturalWalk(targetPosition)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = char.HumanoidRootPart
+    local humanoid = char.Humanoid
+    local startPos = hrp.Position
+    local distance = (startPos - targetPosition).Magnitude
+    
+    -- Calculate time for 115% normal walk speed (faster for bypass)
+    local walkTime = distance / (originalSpeed * 1.15)
+    
+    -- Create smooth tween
+    local tweenInfo = TweenInfo.new(
+        walkTime,
+        Enum.EasingStyle.Linear,
+        Enum.EasingDirection.InOut
+    )
+    
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPosition)})
+    tween:Play()
+end
+
+-- Teleport Up function
+local function teleportUp()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 265, 0))
+        end
+    end)
+end
+
+-- Teleport Down function
+local function teleportDown()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
+        end
+    end)
+end
+
+-- Create Sky Widget
+local function createSkyWidget()
+    if skyWidget then
+        skyWidget:Destroy()
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "SkyWidget"
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ResetOnSpawn = false -- Persist through death
+    skyWidget = screenGui
+    
+    -- Main Frame - Glassmorphism effect
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 220, 0, 140)
+    mainFrame.Position = UDim2.new(0.5, -110, 0.3, -70)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    
+    -- Corner
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 15)
+    corner.Parent = mainFrame
+    
+    -- Border glow effect
+    local borderFrame = Instance.new("Frame")
+    borderFrame.Name = "BorderFrame"
+    borderFrame.Size = UDim2.new(1, 4, 1, 4)
+    borderFrame.Position = UDim2.new(0, -2, 0, -2)
+    borderFrame.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    borderFrame.BackgroundTransparency = 0.6
+    borderFrame.BorderSizePixel = 0
+    borderFrame.Parent = mainFrame
+    borderFrame.ZIndex = -1
+    
+    local borderCorner = Instance.new("UICorner")
+    borderCorner.CornerRadius = UDim.new(0, 17)
+    borderCorner.Parent = borderFrame
+    
+    -- Header with gradient
+    local header = Instance.new("Frame")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 40)
+    header.Position = UDim2.new(0, 0, 0, 0)
+    header.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    header.BackgroundTransparency = 0.2
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 15)
+    headerCorner.Parent = header
+    
+    -- Title with cool font
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, -70, 1, 0)
+    title.Position = UDim2.new(0, 15, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "⭐ SKY CONTROL ⭐"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 16
+    title.Font = Enum.Font.GothamBold
+    title.Parent = header
+    
+    -- Minimize Button
+    local minimizeButton = Instance.new("TextButton")
+    minimizeButton.Name = "MinimizeButton"
+    minimizeButton.Size = UDim2.new(0, 25, 0, 25)
+    minimizeButton.Position = UDim2.new(1, -62, 0, 7)
+    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 200, 60)
+    minimizeButton.Text = "−"
+    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeButton.TextSize = 14
+    minimizeButton.Font = Enum.Font.GothamBold
+    minimizeButton.BorderSizePixel = 0
+    minimizeButton.Parent = header
+    
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = UDim.new(0, 12)
+    minimizeCorner.Parent = minimizeButton
+    
+    -- Close Button with animation
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 25, 0, 25)
+    closeButton.Position = UDim2.new(1, -32, 0, 7)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    closeButton.Text = "✕"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.TextSize = 14
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.BorderSizePixel = 0
+    closeButton.Parent = header
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 12)
+    closeCorner.Parent = closeButton
+    
+    -- Content Frame (for minimize functionality)
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "ContentFrame"
+    contentFrame.Size = UDim2.new(1, 0, 1, -40)
+    contentFrame.Position = UDim2.new(0, 0, 0, 40)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = mainFrame
+    
+    -- Up Button - Improved design
+    local upButton = Instance.new("TextButton")
+    upButton.Name = "UpButton"
+    upButton.Size = UDim2.new(0, 85, 0, 35)
+    upButton.Position = UDim2.new(0, 20, 0, 15)
+    upButton.BackgroundColor3 = Color3.fromRGB(50, 200, 120)
+    upButton.Text = "🚀 UP"
+    upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    upButton.TextSize = 14
+    upButton.Font = Enum.Font.GothamBold
+    upButton.BorderSizePixel = 0
+    upButton.Parent = contentFrame
+    
+    local upCorner = Instance.new("UICorner")
+    upCorner.CornerRadius = UDim.new(0, 8)
+    upCorner.Parent = upButton
+    
+    -- Up button glow
+    local upGlow = Instance.new("Frame")
+    upGlow.Name = "UpGlow"
+    upGlow.Size = UDim2.new(1, 6, 1, 6)
+    upGlow.Position = UDim2.new(0, -3, 0, -3)
+    upGlow.BackgroundColor3 = Color3.fromRGB(50, 200, 120)
+    upGlow.BackgroundTransparency = 0.7
+    upGlow.BorderSizePixel = 0
+    upGlow.Parent = upButton
+    upGlow.ZIndex = -1
+    
+    local upGlowCorner = Instance.new("UICorner")
+    upGlowCorner.CornerRadius = UDim.new(0, 11)
+    upGlowCorner.Parent = upGlow
+    
+    -- Down Button - Improved design
+    local downButton = Instance.new("TextButton")
+    downButton.Name = "DownButton"
+    downButton.Size = UDim2.new(0, 85, 0, 35)
+    downButton.Position = UDim2.new(0, 115, 0, 15)
+    downButton.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+    downButton.Text = "⬇️ DOWN"
+    downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    downButton.TextSize = 14
+    downButton.Font = Enum.Font.GothamBold
+    downButton.BorderSizePixel = 0
+    downButton.Parent = contentFrame
+    
+    local downCorner = Instance.new("UICorner")
+    downCorner.CornerRadius = UDim.new(0, 8)
+    downCorner.Parent = downButton
+    
+    -- Down button glow
+    local downGlow = Instance.new("Frame")
+    downGlow.Name = "DownGlow"
+    downGlow.Size = UDim2.new(1, 6, 1, 6)
+    downGlow.Position = UDim2.new(0, -3, 0, -3)
+    downGlow.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+    downGlow.BackgroundTransparency = 0.7
+    downGlow.BorderSizePixel = 0
+    downGlow.Parent = downButton
+    downGlow.ZIndex = -1
+    
+    local downGlowCorner = Instance.new("UICorner")
+    downGlowCorner.CornerRadius = UDim.new(0, 11)
+    downGlowCorner.Parent = downGlow
+    
+    -- Info label
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Name = "InfoLabel"
+    infoLabel.Size = UDim2.new(1, -40, 0, 20)
+    infoLabel.Position = UDim2.new(0, 20, 0, 60)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Text = "UP: +265 | DOWN: -50"
+    infoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    infoLabel.TextSize = 12
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.Parent = contentFrame
+    
+    -- Minimize functionality
+    local function toggleMinimize()
+        skyWidgetMinimized = not skyWidgetMinimized
+        if skyWidgetMinimized then
+            contentFrame.Visible = false
+            mainFrame.Size = UDim2.new(0, 220, 0, 40)
+            minimizeButton.Text = "+"
+        else
+            contentFrame.Visible = true
+            mainFrame.Size = UDim2.new(0, 220, 0, 140)
+            minimizeButton.Text = "−"
+        end
+    end
+    
+    -- Button connections
+    minimizeButton.MouseButton1Click:Connect(toggleMinimize)
+    
+    closeButton.MouseButton1Click:Connect(function()
+        skyWidget:Destroy()
+        skyWidget = nil
+        skyWidgetVisible = false
+    end)
+    
+    upButton.MouseButton1Click:Connect(function()
+        teleportUp()
+    end)
+    
+    downButton.MouseButton1Click:Connect(function()
+        teleportDown()
+    end)
+    
+    skyWidgetVisible = true
+end
+
+-- God mode function
+local function toggleGodMode()
+    godMode = not godMode
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if godMode then
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        if char:FindFirstChild("Humanoid") then
+            char.Humanoid.MaxHealth = math.huge
+            char.Humanoid.Health = math.huge
+        end
+    else
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+            end
+        end
+        if char:FindFirstChild("Humanoid") then
+            char.Humanoid.MaxHealth = 100
+            char.Humanoid.Health = 100
+        end
+    end
+end
+
+-- Anti-ragdoll function
+local function toggleAntiRagdoll()
+    antiRagdoll = not antiRagdoll
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if antiRagdoll then
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+            end
+        end
+    end
+end
+
+-- Auto-set base position
+local function updateBase()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        basePosition = char.HumanoidRootPart.Position
+    end
+end
+
+-- Character setup
+local function setupCharacter()
+    repeat wait(0.1) until LocalPlayer.Character
+    repeat wait(0.1) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    updateBase()
+end
+
+if LocalPlayer.Character then
+    setupCharacter()
+end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+-- Initialize anti-kick
+pcall(antiKick)
+
+-- Create UI
+local Window = Rayfield:CreateWindow({
+    Name = "Brainrot Hub",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "Steal a Brainrot script",
+    ConfigurationSaving = {Enabled = false},
+    Discord = {Enabled = false},
+    KeySystem = false
+})
+
+local Tab = Window:CreateTab("Main", 4483362458)
+local StealTab = Window:CreateTab("Steal/Combat", 4483362458)
+
+-- Speed Section
+Tab:CreateSection("Speed & Movement")
+
+Tab:CreateButton({
+    Name = "Speed Boost +45%",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = originalSpeed * 1.45
+                Rayfield:Notify({
+                    Title = "Speed Boost",
+                    Content = "Sigma speed activated",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+Tab:CreateButton({
+    Name = "Natural Walk to Base",
+    Callback = function()
+        pcall(function()
+            naturalWalk(basePosition)
+            Rayfield:Notify({
+                Title = "Natural Walk",
+                Content = "Walking to base faster for bypass...",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end)
+    end
+})
+
+-- Teleport Section
+Tab:CreateSection("Teleport")
+
+Tab:CreateInput({
+    Name = "Set Base (X,Y,Z)",
+    PlaceholderText = "0,10,0",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(text)
+        pcall(function()
+            local coords = string.split(text, ",")
+            if #coords == 3 then
+                local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
+                if x and y and z then
+                    basePosition = Vector3.new(x, y, z)
+                    Rayfield:Notify({
+                        Title = "Base Set",
+                        Content = "New base position set",
+                        Duration = 2,
+                        Image = 4483362458
+                    })
+                end
+            end
+        end)
+    end
+})
+
+Tab:CreateButton({
+    Name = "Go Sky",
+    Callback = function()
+        pcall(function()
+            if not skyWidgetVisible then
+                createSkyWidget()
+                Rayfield:Notify({
+                    Title = "Sky Widget",
+                    Content = "Sky teleport widget opened",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+-- Steal/Combat Features
+StealTab:CreateSection("Combat & Steal")
+
+StealTab:CreateToggle({
+    Name = "God Mode",
+    Default = false,
+    Callback = function(value)
+        pcall(function()
+            godMode = value
+            local char = LocalPlayer.Character
+            if not char then return end
+            
+            if godMode then
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+                if char:FindFirstChild("Humanoid") then
+                    char.Humanoid.MaxHealth = math.huge
+                    char.Humanoid.Health = math.huge
+                end
+            else
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.CanCollide = true
+                    end
+                end
+                if char:FindFirstChild("Humanoid") then
+                    char.Humanoid.MaxHealth = 100
+                    char.Humanoid.Health = 100
+                end
+            end
+            
+            Rayfield:Notify({
+                Title = "God Mode",
+                Content = godMode and "God Mode ON" or "God Mode OFF",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "Invisibility",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                -- Real invisibility toggle
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.Transparency = part.Transparency == 0 and 1 or 0
+                    end
+                    if part:IsA("Accessory") then
+                        part.Handle.Transparency = part.Handle.Transparency == 0 and 1 or 0
+                    end
+                end
+                
+                -- Hide head accessories
+                if char:FindFirstChild("Head") then
+                    for _, child in pairs(char.Head:GetChildren()) do
+                        if child:IsA("Decal") then
+                            child.Transparency = child.Transparency == 0 and 1 or 0
+                        end
+                    end
+                end
+                
+                Rayfield:Notify({
+                    Title = "Invisibility",
+                    Content = "Invisibility toggled",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "No Clip",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = not part.CanCollide
+                    end
+                end
+                
+                Rayfield:Notify({
+                    Title = "No Clip",
+                    Content = "No clip toggled",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "Kill Aura",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local tool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                if not tool then
+                    tool = char:FindFirstChildOfClass("Tool")
+                end
+                
+                if tool then
+                    spawn(function()
+                        while char.Parent do
+                            for _, player in pairs(Players:GetPlayers()) do
+                                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                                    local distance = (player.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
+                                    if distance < 15 then
+                                        -- Simula hit con tool
+                                        if tool.Parent == LocalPlayer.Backpack then
+                                            char.Humanoid:EquipTool(tool)
+                                        end
+                                        if tool:FindFirstChild("Handle") then
+                                            tool:Activate()
+                                        end
+                                    end
+                                end
+                            end
+                            wait(0.1)
+                        end
+                    end)
+                    
+                    Rayfield:Notify({
+                        Title = "Kill Aura",
+                        Content = "Kill aura activated with " .. tool.Name,
+                        Duration = 2,
+                        Image = 4483362458
+                    })
+                else
+                    Rayfield:Notify({
+                        Title = "Kill Aura",
+                        Content = "No tool found in inventory",
+                        Duration = 2,
+                        Image = 4483362458
+                    })
+                end
+            end
+        end)
+    end
+})
+
+-- Success notification
+Rayfield:Notify({
+    Title = "Brainrot Hub Loaded",
+    Content = "Sigma grindset activated!",
+    Duration = 3,
+    Image = 4483362458
+})
