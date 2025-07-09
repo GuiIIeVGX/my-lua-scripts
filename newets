@@ -1,0 +1,24 @@
+```lua
+local players = game:GetService("Players")
+local local_player = players.LocalPlayer
+local plots = workspace.Plots
+
+local best = nil
+local highest = -1
+local owner = nil
+
+for _, v in next, plots:GetChildren() do
+    if v.Name ~= local_player.Name then
+        for _, b in next, v.Brainrots:GetChildren() do
+            local mps = b.MoneyPerSecond
+            if mps and mps.Value > highest then
+                best = b
+                highest = mps.Value
+                owner = players:FindFirstChild(v.Name)
+            end
+        end
+    end
+end
+if best and owner then game:GetService("ReplicatedStorage").Remotes.StealBrainrot:InvokeServer(best.Name,best,owner)
+end
+```
